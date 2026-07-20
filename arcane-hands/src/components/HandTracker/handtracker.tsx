@@ -32,13 +32,11 @@ export function HandTracker() {
     }
 
     async function start() {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
-      );
+      const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm");
 
       if (disposed) return;
 
-      const createdLandmarker =
+      const createdLandmarker = 
         await HandLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath:
@@ -76,16 +74,11 @@ export function HandTracker() {
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      if (!video || !canvas) {
-        throw new Error("Video or canvas element is missing");
-      }
+      if (!video || !canvas) throw new Error("Video or canvas element is missing");
 
       const context = canvas.getContext("2d");
-
-      if (!context) {
-        throw new Error("Could not create canvas context");
-      }
-
+      if (!context) throw new Error("Could not create canvas context");
+      
       drawingUtils = new DrawingUtils(context);
 
       video.srcObject = stream;
@@ -123,8 +116,9 @@ export function HandTracker() {
         if (video.currentTime === lastVideoTime) return;
         lastVideoTime = video.currentTime;
 
+        //Process the hand data and do something with it 
         const results = handLandmarker.detectForVideo(video, performance.now());
-        HandleHandResults(results.landmarks);
+        HandleHandResults(results);
 
         const context = canvas.getContext("2d");
         if (!context) return;
@@ -132,20 +126,18 @@ export function HandTracker() {
         context.clearRect(0, 0, canvas.width, canvas.height);
 
         for (const landmarks of results.landmarks) {
-          drawingUtils.drawConnectors(
-            landmarks,
-            HandLandmarker.HAND_CONNECTIONS,
+          drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS,
             {
               color: "#040404",
               lineWidth: 2,
-            }
-          );
+            });
 
-          drawingUtils.drawLandmarks(landmarks, {
-            color: "#faf0f0",
-            lineWidth: 1,
-          });
+          drawingUtils.drawLandmarks(landmarks, {color: "#faf0f0", lineWidth: 1,});
         }
+
+        
+
+
       } catch (error) {
         console.error("Hand detection failed:", error);
       } finally {
