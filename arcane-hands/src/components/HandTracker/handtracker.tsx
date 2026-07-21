@@ -10,6 +10,7 @@ import {
 export function HandTracker() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const palmRef = useRef<{ x: number; y: number; palmwidth: number}[]>([]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -129,6 +130,9 @@ export function HandTracker() {
         //Get center of hand coordinates and draw the palm 
         const FingerBases = [5, 9, 13, 17];
 
+        //Temp storage to push to the palm reference
+        const palms: {x: number; y: number; palmwidth: number}[] = [];
+
         for (const hand of results.landmarks) {
           //calculation of knuckles first
           let dx = 0, dy = 0, dz = 0;
@@ -144,6 +148,10 @@ export function HandTracker() {
           dz /= FingerBases.length;
 
           const wrist = hand[0];
+          const pinky_base = hand[17].x * canvas.width;
+          const index_base = hand[5].x * canvas.width;
+
+          const palm_width = Math.abs(pinky_base - index_base)
 
           //Weighted average of the knuckles 
           const x = (wrist.x + dx) / 2;
@@ -152,12 +160,16 @@ export function HandTracker() {
         
           const px = x * canvas.width;
           const py = y * canvas.height;
-        
+
+          palms.push({ x: px, y: py, palmwidth: palm_width});
+          
             context.beginPath();
             context.arc(px, py, 8, 0, Math.PI * 2);
             context.fillStyle = "cyan";
             context.fill();
           }
+
+          palmRef.current = palms;
 
         for (const landmarks of results.landmarks) {
           drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {color: "#040404", lineWidth: 2});
@@ -168,14 +180,10 @@ export function HandTracker() {
           context.font = "50px sans-serif";
           context.fillStyle = "white";
           context.scale(-1, 1);
-          context.fillText("hello", -50, 50)
+          context.fillText("hello", 0, 0)
           context.restore();
 
         }
-
-        
-        
-       
 
       } catch (error) {
         console.error("Hand detection failed:", error);
@@ -227,7 +235,7 @@ export function HandTracker() {
         }}
       />
 
-      <Canvas />
+      <Canvas palmRef={palmRef} />
 
       <canvas
         ref={canvasRef}
