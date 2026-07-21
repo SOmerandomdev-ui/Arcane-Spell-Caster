@@ -62,16 +62,19 @@ export function HandleHandResults(results: HandLandmarkerResult) {
             const vz1 = z2 - z1
             const vz2 = z3 - z1
 
+            //Calculate normal vector to detect direction
             const normalX = vy1 * vz2 - vz1 * vy2
             const normalY = vz1 * vx2 - vx1 * vz2
             const normalZ = vx1 * vy2 - vy1 * vx2    
 
-            if (normalZ < 0 && results.handedness[handIndex][0].categoryName == "Right") console.log(`Right hand palm facing camera`)
-            else if (normalZ > 0 && results.handedness[handIndex][0].categoryName == "Right") console.log(`Right hand palm facing away from camera`)
-            else if (normalZ < 0 && results.handedness[handIndex][0].categoryName == "Left") console.log(`Left hand palm facing away camera`)
-            else if (normalZ > 0 && results.handedness[handIndex][0].categoryName == "Left") console.log(`Left hand palm facing camera`)
+            //Calculate the center of the hand
 
-            
+            //for the shield spell 
+            if (normalZ < 0 && results.handedness[handIndex][0].categoryName == "Right") return {hand: "Right", direction: "Toward"} 
+            else if (normalZ > 0 && results.handedness[handIndex][0].categoryName == "Right") return {hand: "Right", direction: "Away"} 
+            else if (normalZ < 0 && results.handedness[handIndex][0].categoryName == "Left") return {hand: "Left", direction: "Away"}  
+            else if (normalZ > 0 && results.handedness[handIndex][0].categoryName == "Left") return {hand: "Left", direction: "Toward"}  
+            console.log(normalX, normalY, normalZ)
         })
 
         

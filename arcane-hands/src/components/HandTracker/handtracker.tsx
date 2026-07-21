@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { HandleHandResults } from "../HandCalculator.tsx";
+import { Canvas } from "../spells/shield.tsx";
 import {
   DrawingUtils,
   FilesetResolver,
@@ -59,7 +60,7 @@ export function HandTracker() {
           video: {
             facingMode: "user",
             width: { ideal: 1280 },
-            height: { ideal: 720 },
+            height: { ideal: 720 }
           },
           audio: false,
         });
@@ -116,27 +117,65 @@ export function HandTracker() {
         if (video.currentTime === lastVideoTime) return;
         lastVideoTime = video.currentTime;
 
-        //Process the hand data and do something with it 
+        //Process the hand data, does an action with it, and stores it in a variable
         const results = handLandmarker.detectForVideo(video, performance.now());
-        HandleHandResults(results);
+        let State = HandleHandResults(results);
 
         const context = canvas.getContext("2d");
         if (!context) return;
 
         context.clearRect(0, 0, canvas.width, canvas.height);
 
-        for (const landmarks of results.landmarks) {
-          drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS,
-            {
-              color: "#040404",
-              lineWidth: 2,
-            });
+        //Get center of hand coordinates and draw the palm 
+        const FingerBases = [5, 9, 13, 17];
 
+        for (const hand of results.landmarks) {
+          //calculation of knuckles first
+          let dx = 0, dy = 0, dz = 0;
+        
+          for (const i of FingerBases) {
+            dx += hand[i].x;
+            dy += hand[i].y;
+            dz += hand[i].z;
+          }
+        
+          dx /= FingerBases.length;
+          dy /= FingerBases.length
+          dz /= FingerBases.length;
+
+          const wrist = hand[0];
+
+          //Weighted average of the knuckles 
+          const x = (wrist.x + dx) / 2;
+          const y = (wrist.y + dy) / 2;
+          const z = (wrist.z + dz) / 2;
+        
+          const px = x * canvas.width;
+          const py = y * canvas.height;
+        
+            context.beginPath();
+            context.arc(px, py, 8, 0, Math.PI * 2);
+            context.fillStyle = "cyan";
+            context.fill();
+          }
+
+        for (const landmarks of results.landmarks) {
+          drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {color: "#040404", lineWidth: 2});
           drawingUtils.drawLandmarks(landmarks, {color: "#faf0f0", lineWidth: 1,});
+          
+          //Drawing the text for the states 
+          context.save()
+          context.font = "50px sans-serif";
+          context.fillStyle = "white";
+          context.scale(-1, 1);
+          context.fillText("hello", -50, 50)
+          context.restore();
+
         }
 
         
-
+        
+       
 
       } catch (error) {
         console.error("Hand detection failed:", error);
@@ -184,14 +223,18 @@ export function HandTracker() {
         style={{
           ...layerStyle,
           objectFit: "cover",
+          zIndex: 0,
         }}
       />
+
+      <Canvas />
 
       <canvas
         ref={canvasRef}
         style={{
           ...layerStyle,
           pointerEvents: "none",
+          zIndex: 2,
         }}
       />
     </div>

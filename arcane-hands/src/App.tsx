@@ -1,11 +1,10 @@
-import {useEffect, useRef } from "react";
 import { HandTracker } from "./components/HandTracker/handtracker.tsx";
 
-
 function App() {
-  return (
-    <HandTracker/>
-  );
+  return <div>
+      <HandTracker />;
+    </div>
 }
 
-export default App
+export default App;
+
