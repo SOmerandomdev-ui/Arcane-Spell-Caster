@@ -7,10 +7,18 @@ import {
   HandLandmarker,
 } from "@mediapipe/tasks-vision";
 
+export type HandSide = "Left" | "Right";
+export type PalmDirection = "Toward" | "Away";
+export type HandState = {
+    hand: HandSide;
+    direction: PalmDirection;
+  };
+
 export function HandTracker() {
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const palmRef = useRef<{ x: number; y: number; palmwidth: number}[]>([]);
+  const palmRef = useRef<{ x: number; y: number; palmwidth: number; state: HandState }[]>([]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -120,7 +128,6 @@ export function HandTracker() {
 
         //Process the hand data, does an action with it, and stores it in a variable
         const results = handLandmarker.detectForVideo(video, performance.now());
-        let State = HandleHandResults(results);
 
         const context = canvas.getContext("2d");
         if (!context) return;
@@ -131,29 +138,29 @@ export function HandTracker() {
         const FingerBases = [5, 9, 13, 17];
 
         //Temp storage to push to the palm reference
-        const palms: {x: number; y: number; palmwidth: number}[] = [];
-
+        const palms: {x: number; y: number; palmwidth: number; state: HandState}[] = [];
+        
         for (const hand of results.landmarks) {
           //calculation of knuckles first
           let dx = 0, dy = 0, dz = 0;
-        
+          
+          //Add the x, y and z components
           for (const i of FingerBases) {
             dx += hand[i].x;
             dy += hand[i].y;
             dz += hand[i].z;
           }
-        
-          dx /= FingerBases.length;
+          
+          //Average of the four knuckle points 
+          dx /= FingerBases.length; 
           dy /= FingerBases.length
           dz /= FingerBases.length;
 
           const wrist = hand[0];
-          const pinky_base = hand[17].x * canvas.width;
-          const index_base = hand[5].x * canvas.width;
+          const pinky_base = hand[17]
+          const index_base = hand[5]
 
-          const palm_width = Math.abs(pinky_base - index_base)
-
-          //Weighted average of the knuckles 
+          //Weighted average of the knuckles AND the wrist
           const x = (wrist.x + dx) / 2;
           const y = (wrist.y + dy) / 2;
           const z = (wrist.z + dz) / 2;
@@ -161,7 +168,14 @@ export function HandTracker() {
           const px = x * canvas.width;
           const py = y * canvas.height;
 
-          palms.push({ x: px, y: py, palmwidth: palm_width});
+          //palm width calculation 
+          const palmwidthX = (pinky_base.x - index_base.x) * canvas.width
+          const palmwidthY = (pinky_base.y - index_base.y) * canvas.width
+
+          const palm_width = Math.hypot(palmwidthX, palmwidthY);
+          let State = HandleHandResults(results)
+
+          palms.push({ x: px, y: py, palmwidth: palm_width, state: State});
           
             context.beginPath();
             context.arc(px, py, 8, 0, Math.PI * 2);

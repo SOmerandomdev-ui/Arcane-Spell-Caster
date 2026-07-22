@@ -21,7 +21,7 @@ export function HandleHandResults(results: HandLandmarkerResult) {
             return tipToWrist > middleToWrist;
         }
         
-        results.landmarks.forEach((points, handIndex) => {
+        return results.landmarks.map((points, handIndex) => {
             const WRIST = points[0]
             const THUMB_BASE = points[1]
             const THUMB_MIDDLE = points[2]
@@ -67,15 +67,22 @@ export function HandleHandResults(results: HandLandmarkerResult) {
             const normalY = vz1 * vx2 - vx1 * vz2
             const normalZ = vx1 * vy2 - vy1 * vx2    
 
-            //Calculate the center of the hand
-
+            
             //for the shield spell 
-            if (normalZ < 0 && results.handedness[handIndex][0].categoryName == "Right") return {hand: "Right", direction: "Toward"} 
-            else if (normalZ > 0 && results.handedness[handIndex][0].categoryName == "Right") return {hand: "Right", direction: "Away"} 
-            else if (normalZ < 0 && results.handedness[handIndex][0].categoryName == "Left") return {hand: "Left", direction: "Away"}  
-            else if (normalZ > 0 && results.handedness[handIndex][0].categoryName == "Left") return {hand: "Left", direction: "Toward"}  
-            console.log(normalX, normalY, normalZ)
+            const hand = results.handedness[handIndex][0].categoryName 
+            let direction = null
+
+            if (normalZ < 0 && hand == "Right") direction = "Toward" 
+            else if (normalZ > 0 && hand == "Right") direction = "Away"
+            else if (normalZ < 0 && hand == "Left")  direction = "Away" 
+            else if (normalZ > 0 && hand == "Left") direction = "Toward"  
+            
+            //console.log({hand: hand, direction: direction})
+            return {hand: hand, direction: direction}
+            
         })
+
+        
 
         
 
