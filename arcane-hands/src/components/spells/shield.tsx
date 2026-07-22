@@ -4,7 +4,7 @@ import "./shield.css";
 import { Application, Container, Graphics } from "pixi.js";
 import type { HandState, NestedHandState } from "../handTypes.ts";
 
-type PalmPoint = { x: number; y: number; palmwidth: number; state: NestedHandState};
+type PalmPoint = { x: number; y: number; palmwidth: number; state: NestedHandState; };
 
 type CanvasProps = {
   palmRef: RefObject<PalmPoint[]>;
@@ -195,7 +195,7 @@ export function Canvas({ palmRef }: CanvasProps) {
           const p = palms[i];
           const s = shields[i];
 
-          if (!p || p.state[i].direction == "Away" ) {
+          if (!p || p.state[i].handangle > 40|| p.state[i].extended == false) {
             s.root.visible = false;
             continue;
           }

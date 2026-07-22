@@ -43,6 +43,7 @@ export function HandleHandResults(results: HandLandmarkerResult) {
             const PINKY_MIDDLE = points[18]
             const PINKY_INDEX = points[19]
             const PINKY_TIP = points[20]
+            const hand = results.handedness[handIndex][0].categoryName 
 
             const RING_EXTEND = isFingerExtended(RING_TIP, RING_MIDDLE, WRIST)
             const PINKY_EXTEND = isFingerExtended(PINKY_TIP, PINKY_MIDDLE, WRIST)
@@ -62,23 +63,39 @@ export function HandleHandResults(results: HandLandmarkerResult) {
             const vz1 = z2 - z1
             const vz2 = z3 - z1
 
-            //Calculate normal vector to detect direction
+            //Normal vector components as well as the normalized components
             const normalX = vy1 * vz2 - vz1 * vy2
             const normalY = vz1 * vx2 - vx1 * vz2
             const normalZ = vx1 * vy2 - vy1 * vx2    
+            const magnitude = Math.sqrt(normalX**2 + normalY**2 + normalZ**2)
 
+            const normalizedX = normalX / magnitude
+            const normalizedY = normalY / magnitude
+            const normalizedZ = normalZ / magnitude
+            const normalizedmangnitude = Math.sqrt(normalizedX**2 + normalizedY**2 + normalizedZ**2)
+            const screenmagnitude = 1
+
+            //normal vector and screen vector 
+            const normalizedvector = {x: normalizedX, y: normalizedY, z: normalizedZ}
+            const screenvector = {x: 0, y: 0, z: hand === "Right" ? -1 : 1}
+
+            //Find angle 
+            const dotproduct = normalizedvector.z * screenvector.z
+            const totalmagnitude = normalizedmangnitude * screenmagnitude
+            const angle = Math.acos(dotproduct / totalmagnitude) * (180 / Math.PI)
+            
             
             //for the shield spell 
-            const hand = results.handedness[handIndex][0].categoryName 
             let direction = null
+            let extended = (RING_EXTEND && PINKY_EXTEND && THUMB_EXTEND && INDEX_EXTEND && MIDDLE_EXTEND)
 
+            //border for palm facing camera 
             if (normalZ < 0 && hand == "Right") direction = "Toward" 
             else if (normalZ > 0 && hand == "Right") direction = "Away"
             else if (normalZ < 0 && hand == "Left")  direction = "Away" 
             else if (normalZ > 0 && hand == "Left") direction = "Toward"  
-            
-            //console.log({hand: hand, direction: direction})
-            return {hand: hand, direction: direction}
+           
+            return {hand: hand, direction: direction, extended: extended, handangle: angle }
             
         })
 

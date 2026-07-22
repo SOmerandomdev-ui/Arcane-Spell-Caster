@@ -16,6 +16,7 @@ export type HandState = {
 
 export function HandTracker() {
   
+  
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const palmRef = useRef<{ x: number; y: number; palmwidth: number; state: HandState }[]>([]);
