@@ -1,54 +1,46 @@
 import type { HandLandmarkerResult } from "@mediapipe/tasks-vision";
+import type { HandState } from "./handTypes";
 
-export function HandleHandResults(results: HandLandmarkerResult) {
-    if (results.landmarks.length == 0)  return
-    else {
-        type Point = { x: number; y: number; z: number }
+type Point = { x: number; y: number; z: number }
 
-        //Helper for calculating distance for finger states
-        function distance3D(a: Point, b: Point) {
-            return Math.sqrt(
-            (a.x - b.x) ** 2 +
-            (a.y - b.y) ** 2 +
-            (a.z - b.z) ** 2
-          );
-        }
+    //Helper for calculating distance for finger states
+    function distance3D(a: Point, b: Point) {
+        return Math.sqrt(
+        (a.x - b.x) ** 2 +
+        (a.y - b.y) ** 2 +
+        (a.z - b.z) ** 2
+      );
+    }
+    //Helper for checking finger extension
+    function isFingerExtended(tip: Point, base: Point, wrist: Point): boolean {
+        const tipToWrist = distance3D(tip, wrist);
+        const baseToWrist = distance3D(base, wrist);
+        return tipToWrist > baseToWrist 
+    }
 
-        //Helper for checking finger extension
-        function isFingerExtended(tip: Point, middle: Point, wrist: Point): boolean {
-            const tipToWrist = distance3D(tip, wrist);
-            const middleToWrist = distance3D(middle, wrist);
-            return tipToWrist > middleToWrist;
-        }
+export function HandleHandResults(results: HandLandmarkerResult): HandState[] {
+    if (results.landmarks.length == 0) return []
         
-        return results.landmarks.map((points, handIndex) => {
+        return results.landmarks.map<HandState>((points, handIndex) => {
             const WRIST = points[0]
             const THUMB_BASE = points[1]
-            const THUMB_MIDDLE = points[2]
-            const THUMB_INDEX = points[3]
             const THUMB_TIP = points[4]
             const INDEX_BASE = points[5]
-            const INDEX_MIDDLE = points[6]
-            const INDEX_INDEX = points[7]
             const INDEX_TIP = points[8]
             const MIDDLE_BASE = points[9]
-            const MIDDLE_MIDDLE = points[10]
-            const MIDDLE_INDEX = points[11]
             const MIDDLE_TIP = points[12]
             const RING_BASE = points[13]
-            const RING_MIDDLE = points[14]
-            const RING_INDEX = points[15]
             const RING_TIP = points[16]
             const PINKY_BASE = points[17]
-            const PINKY_MIDDLE = points[18]
-            const PINKY_INDEX = points[19]
             const PINKY_TIP = points[20]
-            const hand = results.handedness[handIndex][0].categoryName 
+            const handedness = results.handedness[handIndex]?.[0]?.categoryName
+            const hand: HandState["hand"] = handedness === "Left" ? "Left" : "Right"
+            const TIP: HandState["tip"] = {thumb: THUMB_TIP, index: INDEX_TIP, middle: MIDDLE_TIP, ring: RING_TIP, pink: PINKY_TIP}
 
-            const RING_EXTEND = isFingerExtended(RING_TIP, RING_MIDDLE, WRIST)
-            const PINKY_EXTEND = isFingerExtended(PINKY_TIP, PINKY_MIDDLE, WRIST)
-            const INDEX_EXTEND = isFingerExtended(INDEX_TIP, INDEX_MIDDLE, WRIST)
-            const MIDDLE_EXTEND = isFingerExtended(MIDDLE_TIP, MIDDLE_MIDDLE, WRIST)
+            const RING_EXTEND = isFingerExtended(RING_TIP, RING_BASE, WRIST)
+            const PINKY_EXTEND = isFingerExtended(PINKY_TIP, PINKY_BASE, WRIST)
+            const INDEX_EXTEND = isFingerExtended(INDEX_TIP, INDEX_BASE, WRIST)
+            const MIDDLE_EXTEND = isFingerExtended(MIDDLE_TIP, MIDDLE_BASE, WRIST)
             const THUMB_EXTEND = isFingerExtended(THUMB_TIP, THUMB_BASE, WRIST)
 
             //Checking palm direction
@@ -86,25 +78,17 @@ export function HandleHandResults(results: HandLandmarkerResult) {
             
             
             //for the shield spell 
-            let direction = null
-            let extended = (RING_EXTEND && PINKY_EXTEND && THUMB_EXTEND && INDEX_EXTEND && MIDDLE_EXTEND)
+            let direction: HandState["direction"]
+            const extended = (RING_EXTEND && PINKY_EXTEND && THUMB_EXTEND && INDEX_EXTEND && MIDDLE_EXTEND)
+            const extendedFingers: HandState["extendedFingers"] = {thumb: THUMB_EXTEND, index: INDEX_EXTEND, middle: MIDDLE_EXTEND, ring: RING_EXTEND, pink: PINKY_EXTEND,}
 
             //border for palm facing camera 
-            if (normalZ < 0 && hand == "Right") direction = "Toward" 
-            else if (normalZ > 0 && hand == "Right") direction = "Away"
-            else if (normalZ < 0 && hand == "Left")  direction = "Away" 
-            else if (normalZ > 0 && hand == "Left") direction = "Toward"  
-           
-            return {hand: hand, direction: direction, extended: extended, handangle: angle }
+            if (angle > 30 && angle < 140) direction = "Side" 
+            else if (angle > 140) direction = "Away"
+            else direction = "Toward"
+            
+   
+            return {hand: hand, direction: direction, extended: extended, extendedFingers: extendedFingers, handangle: angle, tip: TIP }
             
         })
-
-        
-
-        
-
-
-
-        
-        
-}}
+}

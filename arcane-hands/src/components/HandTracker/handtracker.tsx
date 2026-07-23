@@ -1,18 +1,13 @@
 import { useEffect, useRef } from "react";
 import { HandleHandResults } from "../HandCalculator.tsx";
-import { Canvas } from "../spells/shield.tsx";
+import { Canvas } from "../spells/SpellManager.tsx";
+import { drawOverlayText } from "../Overlay-Text.tsx";
+import type { HandState } from "../handTypes.ts";
 import {
   DrawingUtils,
   FilesetResolver,
   HandLandmarker,
 } from "@mediapipe/tasks-vision";
-
-export type HandSide = "Left" | "Right";
-export type PalmDirection = "Toward" | "Away";
-export type HandState = {
-    hand: HandSide;
-    direction: PalmDirection;
-  };
 
 export function HandTracker() {
   
@@ -139,23 +134,26 @@ export function HandTracker() {
         const FingerBases = [5, 9, 13, 17];
 
         //Temp storage to push to the palm reference
-        const palms: {x: number; y: number; palmwidth: number; state: HandState}[] = [];
+        const palms: { x: number; y: number; palmwidth: number; state: HandState }[] = [];
+        const states = HandleHandResults(results);
         
-        for (const hand of results.landmarks) {
+        for (let handIndex = 0; handIndex < results.landmarks.length; handIndex++) {
+          const hand = results.landmarks[handIndex];
+          const state = states[handIndex];
+          if (!state) continue;
+
           //calculation of knuckles first
-          let dx = 0, dy = 0, dz = 0;
+          let dx = 0, dy = 0;
           
-          //Add the x, y and z components
+          // Add palm x and y components.
           for (const i of FingerBases) {
             dx += hand[i].x;
             dy += hand[i].y;
-            dz += hand[i].z;
           }
           
           //Average of the four knuckle points 
           dx /= FingerBases.length; 
           dy /= FingerBases.length
-          dz /= FingerBases.length;
 
           const wrist = hand[0];
           const pinky_base = hand[17]
@@ -164,7 +162,6 @@ export function HandTracker() {
           //Weighted average of the knuckles AND the wrist
           const x = (wrist.x + dx) / 2;
           const y = (wrist.y + dy) / 2;
-          const z = (wrist.z + dz) / 2;
         
           const px = x * canvas.width;
           const py = y * canvas.height;
@@ -174,9 +171,8 @@ export function HandTracker() {
           const palmwidthY = (pinky_base.y - index_base.y) * canvas.width
 
           const palm_width = Math.hypot(palmwidthX, palmwidthY);
-          let State = HandleHandResults(results)
 
-          palms.push({ x: px, y: py, palmwidth: palm_width, state: State});
+          palms.push({ x: px, y: py, palmwidth: palm_width, state });
           
             context.beginPath();
             context.arc(px, py, 8, 0, Math.PI * 2);
@@ -189,16 +185,9 @@ export function HandTracker() {
         for (const landmarks of results.landmarks) {
           drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {color: "#040404", lineWidth: 2});
           drawingUtils.drawLandmarks(landmarks, {color: "#faf0f0", lineWidth: 1,});
-          
-          //Drawing the text for the states 
-          context.save()
-          context.font = "50px sans-serif";
-          context.fillStyle = "white";
-          context.scale(-1, 1);
-          context.fillText("hello", 0, 0)
-          context.restore();
-
         }
+
+        drawOverlayText(context, palms);
 
       } catch (error) {
         console.error("Hand detection failed:", error);

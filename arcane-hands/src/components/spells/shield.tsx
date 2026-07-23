@@ -1,17 +1,14 @@
-import { useEffect, useRef } from "react";
-import type { RefObject } from "react";
-import "./shield.css";
-import { Application, Container, Graphics } from "pixi.js";
-import type { HandState, NestedHandState } from "../handTypes.ts";
+import { BlurFilter, Container, Graphics } from "pixi.js";
 
-type PalmPoint = { x: number; y: number; palmwidth: number; state: NestedHandState; };
-
-type CanvasProps = {
-  palmRef: RefObject<PalmPoint[]>;
+type ShieldPalm = {
+  x: number;
+  y: number;
+  palmwidth: number;
 };
 
-type ShieldFx = {
+export type ShieldFx = {
   root: Container;
+  mist: Container;
   glow: Graphics;
   ringOuter: Graphics;
   ringInner: Graphics;
@@ -33,8 +30,21 @@ const C = {
   violet: 0xb388ff,
 } as const;
 
-function createShield(): ShieldFx {
+export function createShield(): ShieldFx {
   const root = new Container();
+
+  // Soft drifting energy vapor behind shield.
+  const mist = new Container();
+  mist.filters = [new BlurFilter({ strength: 18, quality: 1 })];
+  for (let i = 0; i < 12; i++) {
+    const puff = new Graphics()
+      .circle(0, 0, 26 + (i % 4) * 6)
+      .fill({
+        color: i % 3 === 0 ? C.violet : C.neon,
+        alpha: 0.16,
+      });
+    mist.addChild(puff);
+  }
 
   const glow = new Graphics()
     .circle(0, 0, 140)
@@ -48,7 +58,6 @@ function createShield(): ShieldFx {
     .circle(0, 0, 78)
     .stroke({ color: C.electric, width: 1.5, alpha: 0.85 });
 
-  // Crisp hex stack
   const hexOuter = new Graphics()
     .regularPoly(0, 0, 96, 6)
     .fill({ color: C.electric, alpha: 0.1 })
@@ -64,7 +73,6 @@ function createShield(): ShieldFx {
     .fill({ color: C.neon, alpha: 0.14 })
     .stroke({ color: C.hot, width: 2, alpha: 0.9 });
 
-  // Sharp radial blades where it iterates and makes 6 ice spikes 
   const blades = new Container();
   for (let i = 0; i < 6; i++) {
     const blade = new Graphics()
@@ -79,7 +87,6 @@ function createShield(): ShieldFx {
     blades.addChild(blade);
   }
 
-  // Bright orbit gems
   const orbit = new Container();
   for (let i = 0; i < 12; i++) {
     const big = i % 3 === 0;
@@ -94,7 +101,6 @@ function createShield(): ShieldFx {
     orbit.addChild(pip);
   }
 
-  // Tight neon arcs
   const arcs = new Container();
   arcs.addChild(
     new Graphics()
@@ -121,6 +127,7 @@ function createShield(): ShieldFx {
     .stroke({ color: C.ice, width: 1.5, alpha: 0.9 });
 
   root.addChild(
+    mist,
     glow,
     ringOuter,
     ringInner,
@@ -136,6 +143,7 @@ function createShield(): ShieldFx {
 
   return {
     root,
+    mist,
     glow,
     ringOuter,
     ringInner,
@@ -150,94 +158,46 @@ function createShield(): ShieldFx {
   };
 }
 
-export function Canvas({ palmRef }: CanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export function updateShield(
+  shield: ShieldFx,
+  palm: ShieldPalm,
+  tick: number,
+  dt: number,
+  handindex: number,
+  screenwidth: number
+): void {
+  const sizeFromPalm = Math.max(0.5, Math.min(2.4, palm.palmwidth / 105));
+  shield.root.visible = true;
+  shield.root.x = screenwidth - palm.x;
+  shield.root.y = palm.y;
+  const pulse = 1 + Math.sin(tick * 1.6 + handindex) * 0.1;
+  const surge = 1 + Math.sin(tick * 4 + handindex * 1.7) * 0.05;
+  shield.root.scale.set(sizeFromPalm * pulse * surge);
 
-  useEffect(() => {
-    let app: Application | null = null;
-    let isMounted = true;
+  shield.hexOuter.rotation += 0.03 * dt;
+  shield.hexMid.rotation -= 0.05 * dt;
+  shield.hexInner.rotation += 0.07 * dt;
+  shield.blades.rotation -= 0.012 * dt;
+  shield.orbit.rotation += 0.015 * dt;
+  shield.arcs.rotation -= 0.08 * dt;
+  shield.ringOuter.rotation += 0.01 * dt;
+  shield.ringInner.rotation -= 0.018 * dt;
+  shield.coreSpike.rotation += 0.12 * dt;
 
-    async function setup() {
-      const container = containerRef.current;
-      if (!container) return;
+  shield.mist.rotation -= 0.004 * dt;
+  shield.mist.children.forEach((puff, index) => {
+    const phase = tick * 0.55 + index * 1.71 + handindex;
+    const radius = 132 + Math.sin(phase * 0.8) * 24;
+    const angle =
+      (index / shield.mist.children.length) * Math.PI * 2 + phase * 0.12;
+    puff.x = Math.cos(angle) * radius;
+    puff.y = Math.sin(angle) * radius + Math.sin(phase) * 12;
+    puff.alpha = 0.14 + (Math.sin(phase * 1.4) + 1) * 0.07;
+    puff.scale.set(0.8 + (Math.sin(phase * 0.9) + 1) * 0.22);
+  });
 
-      const newApp = new Application();
-      await newApp.init({
-        resizeTo: container,
-        backgroundAlpha: 0,
-        antialias: true,
-        resolution: Math.min(window.devicePixelRatio || 1, 2),
-        autoDensity: true,
-      });
-
-      if (!isMounted) {
-        newApp.destroy(true, { children: true });
-        return;
-      }
-
-      app = newApp;
-      container.appendChild(app.canvas);
-
-      const shields = [createShield(), createShield()];
-      for (const s of shields) {
-        s.root.visible = false;
-        app.stage.addChild(s.root);
-      }
-
-      let tick = 0;
-
-      app.ticker.add((ticker) => {
-        const palms = palmRef.current ?? [];
-        tick += ticker.deltaTime * 0.09;
-        const dt = ticker.deltaTime;
-
-        for (let i = 0; i < shields.length; i++) {
-          const p = palms[i];
-          const s = shields[i];
-
-          if (!p || p.state[i].handangle > 40|| p.state[i].extended == false) {
-            s.root.visible = false;
-            continue;
-          }
-
-          s.root.visible = true;
-          s.root.x = app!.screen.width - p.x;
-          s.root.y = p.y;
-
-          const sizeFromPalm = Math.max(0.5, Math.min(2.4, p.palmwidth / 105));
-          const pulse = 1 + Math.sin(tick * 1.6 + i) * 0.1;
-          const surge = 1 + Math.sin(tick * 4 + i * 1.7) * 0.05;
-          s.root.scale.set(sizeFromPalm * pulse * surge);
-
-          // Fast counter-spin layers
-          s.hexOuter.rotation += 0.03 * dt;
-          s.hexMid.rotation -= 0.05 * dt;
-          s.hexInner.rotation += 0.07 * dt;
-          s.blades.rotation -= 0.012 * dt; // ice blades — slow
-          s.orbit.rotation += 0.015 * dt; // ice gems — slow orbit
-          s.arcs.rotation -= 0.08 * dt;
-          s.ringOuter.rotation += 0.01 * dt;
-          s.ringInner.rotation -= 0.018 * dt;
-          s.coreSpike.rotation += 0.12 * dt;
-
-          // Vibrant flicker
-          s.glow.alpha = 0.1 + Math.sin(tick * 2.2 + i) * 0.05;
-          s.core.alpha = 0.75 + Math.sin(tick * 5 + i) * 0.25;
-          s.core.scale.set(0.9 + Math.sin(tick * 3 + i) * 0.25);
-          s.blades.alpha = 0.7 + Math.sin(tick * 2.8 + i) * 0.3;
-        }
-      });
-    }
-
-    void setup();
-
-    return () => {
-      isMounted = false;
-      if (app) {
-        app.destroy(true, { children: true });
-      }
-    };
-  }, [palmRef]);
-
-  return <div className="Shield" ref={containerRef} />;
+  shield.glow.alpha = 0.1 + Math.sin(tick * 2.2 + handindex) * 0.05;
+  shield.core.alpha = 0.75 + Math.sin(tick * 5 + handindex) * 0.25;
+  shield.core.scale.set(0.9 + Math.sin(tick * 3 + handindex) * 0.25);
+  shield.blades.alpha = 0.7 + Math.sin(tick * 2.8 + handindex) * 0.3;
 }
