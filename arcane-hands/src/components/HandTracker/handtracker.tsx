@@ -239,7 +239,7 @@ export function HandTracker() {
         }}
       />
 
-      <Canvas palmRef={palmRef} />
+      <Canvas palmRef={palmRef} videoRef={videoRef} />
 
       <canvas
         ref={canvasRef}

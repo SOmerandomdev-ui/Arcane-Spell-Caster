@@ -7,8 +7,19 @@ import {
   hideLightning,
   updateLightning,
 } from "./Lightning.tsx";
-import { Application } from "pixi.js";
+import {
+  createredorb,
+  hideredorb,
+  updateredorb,
+} from "./redorb.tsx";
+import { Application, Assets, Sprite, Texture, VideoSource } from "pixi.js";
 import type { HandState } from "../handTypes.ts";
+import { createFireball, hideFireball, updateFireball } from "./Fireball.tsx";
+import {
+  createBlackHole,
+  hideBlackHole,
+  updateBlackHole,
+} from "./BlackHole.tsx";
 
 type PalmPoint = {
   x: number;
@@ -19,14 +30,69 @@ type PalmPoint = {
 
 type CanvasProps = {
   palmRef: RefObject<PalmPoint[]>;
+  videoRef: RefObject<HTMLVideoElement | null>;
 };
 
-export function Canvas({ palmRef }: CanvasProps) {
+/**
+ * Black-hole gesture:
+ * - exactly one Up palm and one Down palm
+ * - Down-facing palm sits above (or nearly above) the Up-facing palm
+ */
+function getBlackHoleHands(
+  first: PalmPoint | null,
+  second: PalmPoint | null
+): { upper: PalmPoint; lower: PalmPoint } | null {
+  if (!first || !second || !first.state.extended || !second.state.extended) {
+    return null;
+  }
+
+  const downPalm =
+    first.state.direction === "Down"
+      ? first
+      : second.state.direction === "Down"
+        ? second
+        : null;
+  const upPalm =
+    first.state.direction === "Up"
+      ? first
+      : second.state.direction === "Up"
+        ? second
+        : null;
+  if (!downPalm || !upPalm || downPalm === upPalm) return null;
+
+  const palmScale = (downPalm.palmwidth + upPalm.palmwidth) * 0.5;
+  const verticalTolerance = Math.max(18, palmScale * 0.55);
+  const downIsAboveOrClose = downPalm.y <= upPalm.y + verticalTolerance;
+
+  return downIsAboveOrClose ? { upper: downPalm, lower: upPalm } : null;
+}
+
+/** Cover-fit a mirrored video sprite into the Pixi screen. */
+function layoutVideoBg(
+  bg: Sprite,
+  video: HTMLVideoElement,
+  screenW: number,
+  screenH: number
+): void {
+  const vw = video.videoWidth || screenW;
+  const vh = video.videoHeight || screenH;
+  if (vw <= 0 || vh <= 0) return;
+  const scale = Math.max(screenW / vw, screenH / vh);
+  // Negative X mirrors to match the CSS scaleX(-1) selfie view.
+  bg.scale.set(-scale, scale);
+  bg.position.set(screenW / 2, screenH / 2);
+}
+
+export function Canvas({ palmRef, videoRef }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let app: Application | null = null;
     let isMounted = true;
+    let videoBg: Sprite | null = null;
+    let videoTexture: Texture | null = null;
+    let onResize: (() => void) | null = null;
+    const trackedVideo = videoRef.current;
 
     async function setup() {
       const container = containerRef.current;
@@ -39,6 +105,8 @@ export function Canvas({ palmRef }: CanvasProps) {
         antialias: true,
         resolution: Math.min(window.devicePixelRatio || 1, 2),
         autoDensity: true,
+        // Needed so BackdropBlurFilter can sample stage content behind spells.
+        useBackBuffer: true,
       });
 
       if (!isMounted) {
@@ -49,49 +117,197 @@ export function Canvas({ palmRef }: CanvasProps) {
       app = newApp;
       container.appendChild(app.canvas);
 
+      // Feed live camera into Pixi so BackdropBlur on the fireball edge
+      // can frost the real surroundings (not an empty transparent buffer).
+      const video = trackedVideo;
+      if (video) {
+        const attachVideo = () => {
+          if (!app || !isMounted || videoBg || !video.videoWidth) return;
+          const source = new VideoSource({
+            resource: video,
+            autoPlay: false,
+            updateFPS: 0,
+          });
+          source.autoUpdate = true;
+          videoTexture = new Texture({ source });
+          videoBg = new Sprite({
+            texture: videoTexture,
+            anchor: 0.5,
+          });
+          app.stage.addChildAt(videoBg, 0);
+          layoutVideoBg(videoBg, video, app.screen.width, app.screen.height);
+          // Hide DOM video — Pixi draws the feed now.
+          video.style.opacity = "0";
+        };
+
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          attachVideo();
+        } else {
+          video.addEventListener("loadeddata", attachVideo, { once: true });
+        }
+
+        onResize = () => {
+          if (!app || !videoBg || !video.videoWidth) return;
+          layoutVideoBg(videoBg, video, app.screen.width, app.screen.height);
+        };
+        window.addEventListener("resize", onResize);
+      }
+
       const shields = [createShield(), createShield()];
       for (const s of shields) {
         s.root.visible = false;
         app.stage.addChild(s.root);
       }
 
+      // Official particle-emitter flame textures from the example repo.
+      const flameTexture = await Assets.load<Texture>("/particles/particle.png");
+      const fireballs = [
+        createFireball(flameTexture),
+        createFireball(flameTexture),
+      ];
+      for (const f of fireballs) {
+        f.root.visible = false;
+        app.stage.addChild(f.root);
+      }
+
+      const blackHole = createBlackHole();
+      app.stage.addChild(blackHole.root);
+
       const lightning = createLightning();
       app.stage.addChild(lightning.root);
+
+      const redorbs = [createredorb(), createredorb()];
+      for (const orb of redorbs) {
+        orb.root.visible = false;
+        app.stage.addChild(orb.root);
+      }
 
       let tick = 0;
 
       app.ticker.add((ticker) => {
-        //init palms 
         const palms = palmRef.current ?? [];
-        let leftpalm = null
-        let rightpalm = null
+        let leftpalm = null;
+        let rightpalm = null;
 
         tick += ticker.deltaTime * 0.09;
         const dt = ticker.deltaTime;
-        const bothpalms = palms.length == 2
+        const bothpalms = palms.length == 2;
 
-        //Check if both palms exist
-        if (bothpalms)  leftpalm = palms[0], rightpalm = palms[1]
-        
-        //For the Both palms are facing to the side 
-        if (leftpalm?.state.direction == "Side" && rightpalm?.state.direction == "Side") {
-          for (const s of shields) s.root.visible = false;
-          updateLightning(lightning, leftpalm, rightpalm, tick, app!.screen.width, app!.screen.height);
-          
+        if (bothpalms) {
+          leftpalm = palms[0];
+          rightpalm = palms[1];
         }
-        else {
+
+        const blackHoleHands = getBlackHoleHands(leftpalm, rightpalm);
+        if (blackHoleHands) {
           hideLightning(lightning);
-          for (let i = 0; i < 2; i++) {
+          for (const s of shields) s.root.visible = false;
+          for (const f of fireballs) hideFireball(f);
+          for (const orb of redorbs) hideredorb(orb);
+          updateBlackHole(
+            blackHole,
+            blackHoleHands.upper,
+            blackHoleHands.lower,
+            tick,
+            dt,
+            app!.screen.width
+          );
+          return;
+        }
+
+        hideBlackHole(blackHole);
+
+        // Both palms Side → lightning, hide shields + fireballs
+        if (
+          leftpalm?.state.direction == "Side" &&
+          rightpalm?.state.direction == "Side"
+        ) {
+          for (const s of shields) s.root.visible = false;
+          for (const f of fireballs) hideFireball(f);
+          for (const orb of redorbs) hideredorb(orb);
+          updateLightning(
+            lightning,
+            leftpalm,
+            rightpalm,
+            tick,
+            app!.screen.width,
+            app!.screen.height
+          );
+          return;
+        }
+
+        hideLightning(lightning);
+
+        // Per hand: index-only → red orb, Up → fireball, Toward → shield
+        for (let i = 0; i < 2; i++) {
           const palm = palms[i];
           const shield = shields[i];
+          const fireball = fireballs[i];
+          const redorb = redorbs[i];
 
-          if (!palm || palm.state.direction == "Away" || palm.state.direction == "Side" || palm.state.extended == false) {
+          if (!palm) {
+            shield.root.visible = false;
+            hideFireball(fireball);
+            hideredorb(redorb);
+            continue;
+          }
+
+          const fingers = palm.state.extendedFingers;
+          const indexOnly =
+            fingers.index &&
+            !fingers.middle &&
+            !fingers.ring &&
+            !fingers.pink;
+
+          if (indexOnly) {
+            shield.root.visible = false;
+            hideFireball(fireball);
+            updateredorb(
+              redorb,
+              palm,
+              tick,
+              dt,
+              app!.screen.width,
+              app!.screen.height
+            );
+            continue;
+          }
+
+          hideredorb(redorb);
+
+          if (palm.state.extended == false) {
+            shield.root.visible = false;
+            hideFireball(fireball);
+            continue;
+          }
+
+          if (palm.state.direction == "Up") {
+            shield.root.visible = false;
+            updateFireball(
+              fireball,
+              palm,
+              tick,
+              dt,
+              i,
+              app!.screen.width
+            );
+            continue;
+          }
+
+          hideFireball(fireball);
+
+          if (
+            palm.state.direction == "Away" ||
+            palm.state.direction == "Side" ||
+            palm.state.direction == "Down"
+          ) {
             shield.root.visible = false;
             continue;
           }
 
+          // Toward
           updateShield(shield, palm, tick, dt, i, app!.screen.width);
-        }}
+        }
       });
     }
 
@@ -99,11 +315,16 @@ export function Canvas({ palmRef }: CanvasProps) {
 
     return () => {
       isMounted = false;
+      if (onResize) window.removeEventListener("resize", onResize);
+      if (trackedVideo) trackedVideo.style.opacity = "";
+      videoTexture?.destroy(true);
+      videoTexture = null;
+      videoBg = null;
       if (app) {
         app.destroy(true, { children: true });
       }
     };
-  }, [palmRef]);
+  }, [palmRef, videoRef]);
 
   return <div className="Shield" ref={containerRef} />;
 }

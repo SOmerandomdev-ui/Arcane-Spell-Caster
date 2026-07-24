@@ -1,5 +1,5 @@
 export type HandSide = "Left" | "Right";
-export type PalmDirection = "Toward" | "Away" | "Side";
+export type PalmDirection = "Toward" | "Away" | "Side" | "Up" | "Down";
 type TipLocation = {thumb: Point, index: Point, middle: Point, ring: Point, pink: Point}
 type Point = { x: number; y: number; z: number };
 
@@ -16,7 +16,8 @@ export type HandState = {
   direction: PalmDirection;
   extended: boolean;
   extendedFingers: ExtendedFingers;
-  handangle: number;
+  handangleZ: number;
+  handangleY: number;
   tip: TipLocation;
 };
 

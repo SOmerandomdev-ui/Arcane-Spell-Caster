@@ -40,7 +40,8 @@ export function drawOverlayText(
       `side: ${info?.hand ?? "?"}`,
       `face: ${info?.direction ?? "?"}`,
       `open: ${info?.extended ?? "?"}`,
-      `angle: ${info?.handangle != null ? info.handangle.toFixed(1) + "°" : "?"}`,
+      `angle: Towards Camera ${info?.handangleZ != null ? info.handangleZ.toFixed(1) + "°" : "?"}`,
+      `angle: Towards Up ${info?.handangleY != null ? info.handangleY.toFixed(1) + "°" : "?"}`,
     ];
 
     context.save();
@@ -54,7 +55,7 @@ export function drawOverlayText(
     let textY = palm.y - (lines.length * lineHeight) / 2;
 
     // Soft backdrop for readability
-    const boxW = 160;
+    const boxW = 265;
     const boxH = lines.length * lineHeight + 8;
     context.fillStyle = "rgba(0, 0, 0, 0.45)";
     context.fillRect(textX - 6, textY - 4, boxW, boxH);

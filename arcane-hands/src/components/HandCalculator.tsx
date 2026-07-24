@@ -60,35 +60,51 @@ export function HandleHandResults(results: HandLandmarkerResult): HandState[] {
             const normalY = vz1 * vx2 - vx1 * vz2
             const normalZ = vx1 * vy2 - vy1 * vx2    
             const magnitude = Math.sqrt(normalX**2 + normalY**2 + normalZ**2)
+            
 
             const normalizedX = normalX / magnitude
             const normalizedY = normalY / magnitude
             const normalizedZ = normalZ / magnitude
             const normalizedmangnitude = Math.sqrt(normalizedX**2 + normalizedY**2 + normalizedZ**2)
             const screenmagnitude = 1
+            console.log(normalizedX, normalizedY, normalizedZ)
 
             //normal vector and screen vector 
             const normalizedvector = {x: normalizedX, y: normalizedY, z: normalizedZ}
-            const screenvector = {x: 0, y: 0, z: hand === "Right" ? -1 : 1}
-
+            const screenvectorz = {x: 0, y: 0, z: hand === "Right" ? -1 : 1}
+            const screenvectory = {x: 0, y: hand === "Right" ? 1 : -1, z: 0}
+            
             //Find angle 
-            const dotproduct = normalizedvector.z * screenvector.z
+            const dotproductz = normalizedvector.z * screenvectorz.z
+            const dotproducty = normalizedY * screenvectory.y
             const totalmagnitude = normalizedmangnitude * screenmagnitude
-            const angle = Math.acos(dotproduct / totalmagnitude) * (180 / Math.PI)
+            const anglez = Math.acos(dotproductz / totalmagnitude) * (180 / Math.PI)
+            const angley = Math.acos(dotproducty / totalmagnitude) * (180 / Math.PI)
             
             
             //for the shield spell 
-            let direction: HandState["direction"]
+            let direction: HandState["direction"] = "Side"
             const extended = (RING_EXTEND && PINKY_EXTEND && THUMB_EXTEND && INDEX_EXTEND && MIDDLE_EXTEND)
             const extendedFingers: HandState["extendedFingers"] = {thumb: THUMB_EXTEND, index: INDEX_EXTEND, middle: MIDDLE_EXTEND, ring: RING_EXTEND, pink: PINKY_EXTEND,}
 
             //border for palm facing camera 
-            if (angle > 30 && angle < 140) direction = "Side" 
-            else if (angle > 140) direction = "Away"
-            else direction = "Toward"
+            const nx = Math.abs(normalizedX)
+            const ny = Math.abs(normalizedY)
+            const nz = Math.abs(normalizedZ)
+
+            if (ny > nx && ny > nz) {
+                if (angley < 75) direction = "Down"
+                else if (angley > 100) direction = "Up"
+            }
+
+            else if (nz > nx && nz > ny){
+                if (anglez < 45) direction = "Toward"
+                else if (anglez > 140) direction = "Away"
+            }
             
-   
-            return {hand: hand, direction: direction, extended: extended, extendedFingers: extendedFingers, handangle: angle, tip: TIP }
+            else direction = "Side"
+            
+            return {hand: hand, direction: direction, extended: extended, extendedFingers: extendedFingers, handangleZ: anglez, handangleY: angley,  tip: TIP }
             
         })
 }
