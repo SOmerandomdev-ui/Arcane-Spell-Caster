@@ -23,7 +23,6 @@ export function CameraRender() {
                     await VideoRef.current.play()
                 }
         }
-
         start()
 
         //runs on unmount and iterates through the stream tracks (audio and video) and stops them 
