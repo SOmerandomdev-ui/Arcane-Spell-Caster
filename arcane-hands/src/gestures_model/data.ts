@@ -1,2 +1,1 @@
-import type { HandState } from "../components/handTypes";
-
+export {};

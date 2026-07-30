@@ -4,6 +4,18 @@ import { Canvas } from "../spells/SpellManager.tsx";
 import { drawOverlayText } from "../Overlay-Text.tsx";
 import type { HandState } from "../handTypes.ts";
 import { DrawingUtils, FilesetResolver, HandLandmarker} from "@mediapipe/tasks-vision";
+import { isPoseActive } from "../../gestures_model/gesturemodel.ts";
+
+/** Stop retrying once the webcam/WASM pair is clearly broken instead of spamming forever. */
+const MAX_CONSECUTIVE_FAILURES = 30;
+
+/**
+ * StrictMode mounts this effect twice in dev, and the webcam driver answers a
+ * second getUserMedia with NotReadableError while the first one is still
+ * opening. Queueing the sessions makes each mount wait for the previous one to
+ * finish releasing the device.
+ */
+let cameraSession: Promise<void> = Promise.resolve();
 
 export function HandTracker() {
   //Establish references to attach to 
@@ -19,6 +31,8 @@ export function HandTracker() {
     let animationFrameId: number | null = null;
     let lastVideoTime = -1;
     let disposed = false;
+    let halted = false;
+    let consecutiveFailures = 0;
 
     function releaseResources() {
       if (animationFrameId !== null) {
@@ -99,19 +113,22 @@ export function HandTracker() {
     }
 
     function predictWebcam() {
-      if (disposed) return;
+      if (disposed || halted) return;
 
       try {
         const video = videoRef.current;
         const canvas = canvasRef.current;
 
-        //Safeguard against null elements 
+        //Safeguard against null elements. A 0x0 frame makes the MediaPipe WASM
+        //module abort, so wait until the camera reports real dimensions.
         if (
           !video ||
           !canvas ||
           !handLandmarker ||
           !drawingUtils ||
-          video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA
+          video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+          !video.videoWidth ||
+          !video.videoHeight
         ) {
           return;
         }
@@ -138,6 +155,9 @@ export function HandTracker() {
 
         //clear the canvas 
         context.clearRect(0, 0, canvas.width, canvas.height);
+
+        //while the pose spell is running the skeleton would sit on top of the effect
+        const hideHands = isPoseActive();
 
         //Get center of hand coordinates and draw the palm 
         const FingerBases = [5, 9, 13, 17];
@@ -187,29 +207,52 @@ export function HandTracker() {
           palms.push({ x: px, y: py, palmwidth: palm_width, state });
           
           //draw the palm dot 
-          context.beginPath();
-          context.arc(px, py, 8, 0, Math.PI * 2);
-          context.fillStyle = "cyan";
-          context.fill();
+          if (!hideHands) {
+            context.beginPath();
+            context.arc(px, py, 8, 0, Math.PI * 2);
+            context.fillStyle = "cyan";
+            context.fill();
+          }
           }
           
         //change the reference to palms
         palmRef.current = palms;
 
         //draw the skeleton and the joints  
-        for (const landmarks of results.landmarks) {
-          drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {color: "#040404", lineWidth: 2});
-          drawingUtils.drawLandmarks(landmarks, {color: "#faf0f0", lineWidth: 1,});
+        if (!hideHands) {
+          for (const landmarks of results.landmarks) {
+            drawingUtils.drawConnectors(landmarks, HandLandmarker.HAND_CONNECTIONS, {color: "#040404", lineWidth: 2});
+            drawingUtils.drawLandmarks(landmarks, {color: "#faf0f0", lineWidth: 1,});
+          }
+          drawOverlayText(context, palms);
         }
-        drawOverlayText(context, palms);
+
+        consecutiveFailures = 0;
       } 
       
-      catch (error) {console.error("Hand detection failed:", error);} 
-      finally { if (!disposed) animationFrameId = requestAnimationFrame(predictWebcam);}
+      catch (error) {
+        consecutiveFailures++;
+
+        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+          halted = true;
+          console.error(`Hand detection failed ${consecutiveFailures} frames in a row, stopping. Reload to try again.`, error);
+          releaseResources();
+        } else {
+          console.error("Hand detection failed:", error);
+        }
+      } 
+      finally { if (!disposed && !halted) animationFrameId = requestAnimationFrame(predictWebcam);}
     }
 
-    void start().catch((error) => {
-      console.error("Could not start hand tracker:", error);
+    cameraSession = cameraSession.then(start).catch((error: unknown) => {
+      const name = error instanceof Error ? error.name : "";
+
+      if (name === "NotReadableError" || name === "NotAllowedError") {
+        console.error(`Could not open the camera (${name}). Close any other tab or app using the webcam, then reload.`, error);
+      } else {
+        console.error("Could not start hand tracker:", error);
+      }
+
       releaseResources();
     });
 
@@ -231,10 +274,10 @@ export function HandTracker() {
   return (
     <div
       style={{
-        position: "relative",
-        width: "1280px",
-        maxWidth: "100%",
-        aspectRatio: "16 / 9",
+        position: "fixed",
+        inset: 0,
+        overflow: "hidden",
+        background: "#000",
       }}
     >
       <video
@@ -255,6 +298,7 @@ export function HandTracker() {
         ref={canvasRef}
         style={{
           ...layerStyle,
+          objectFit: "cover",
           pointerEvents: "none",
           zIndex: 2,
         }}

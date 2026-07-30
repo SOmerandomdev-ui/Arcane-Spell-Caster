@@ -14,7 +14,7 @@ model.compile({optimizer: tf.train.adam(0.001), loss: "binaryCrossentropy", metr
 */
 
 //turns that data into something the model can use
-function samplestoTensors(samples: {features: number[]; isMatch: boolean} []) {
+export function samplestoTensors(samples: {features: number[]; isMatch: boolean} []) {
     //maps through the features and turns the data into something the computer can use 
     const xs = tf.tensor2d(samples.map((s) => s.features))
     const ys = tf.tensor2d(samples.map((s) => [s.isMatch ? 1 : 0]))

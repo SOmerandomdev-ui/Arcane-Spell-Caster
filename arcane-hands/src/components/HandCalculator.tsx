@@ -12,6 +12,25 @@ function distance3D(a: Point, b: Point) {
   );
 }
 
+/**
+ * Flattens the hand into the 42-value feature vector the gesture model expects:
+ * each landmark's x/y offset from the wrist, divided by the wrist -> middle
+ * knuckle distance so the pose reads the same near or far from the camera.
+ */
+function normalizeLandmarks(points: Point[]): number[] {
+    const wrist = points[0]
+    const middlebase = points[9]
+
+    //hand size in screen units, guarded so a degenerate frame can't divide by zero
+    const scale = Math.hypot(middlebase.x - wrist.x, middlebase.y - wrist.y) || 1
+
+    const features: number[] = []
+    for (const point of points) {
+        features.push((point.x - wrist.x) / scale, (point.y - wrist.y) / scale)
+    }
+    return features
+}
+
 //Helper for checking finger extension
 function isFingerExtended(tip: Point, base: Point, wrist: Point): boolean {
     const tipToWrist = distance3D(tip, wrist);
@@ -112,7 +131,7 @@ export function HandleHandResults(results: HandLandmarkerResult): HandState[] {
         
         else direction = "Side"
         
-        return {hand: hand, direction: direction, extended: extended, extendedFingers: extendedFingers, handangleZ: anglez, handangleY: angley,  tip: TIP, base: BASE }
+        return {hand: hand, direction: direction, extended: extended, extendedFingers: extendedFingers, handangleZ: anglez, handangleY: angley,  tip: TIP, base: BASE, relativelandmarks: normalizeLandmarks(points) }
         
     })
 }

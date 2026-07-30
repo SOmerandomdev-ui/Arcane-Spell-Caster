@@ -19,8 +19,8 @@ export type HandState = {
   handangleZ: number;
   handangleY: number;
   tip: TipLocation;
-  /** MCP / knuckle bases for each finger (for pointing direction). */
   base: TipLocation;
+  relativelandmarks: number[];
 };
 
 
