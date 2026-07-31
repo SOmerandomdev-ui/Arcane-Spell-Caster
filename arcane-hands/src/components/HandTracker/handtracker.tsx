@@ -1,13 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { HandleHandResults } from "../HandCalculator.tsx";
 import { Canvas } from "../spells/SpellManager.tsx";
 import { drawOverlayText } from "../Overlay-Text.tsx";
 import type { HandState } from "../handTypes.ts";
 import { DrawingUtils, FilesetResolver, HandLandmarker} from "@mediapipe/tasks-vision";
 import { isPoseActive } from "../../gestures_model/gesturemodel.ts";
-
-/** Stop retrying once the webcam/WASM pair is clearly broken instead of spamming forever. */
-const MAX_CONSECUTIVE_FAILURES = 30;
 
 /**
  * StrictMode mounts this effect twice in dev, and the webcam driver answers a
@@ -17,13 +14,16 @@ const MAX_CONSECUTIVE_FAILURES = 30;
  */
 let cameraSession: Promise<void> = Promise.resolve();
 
-export function HandTracker() {
+export function HandTracker({isOn, SpellsActive}: {isOn: boolean, SpellsActive: boolean}) {
   //Establish references to attach to 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const palmRef = useRef<{ x: number; y: number; palmwidth: number; state: HandState }[]>([]);
 
   useEffect(() => {
+    //check if the button to turn the camera on is pressed 
+    if (!isOn) return 
+
     //establish variables for the video
     let stream: MediaStream | null = null;
     let handLandmarker: HandLandmarker | null = null;
@@ -32,7 +32,6 @@ export function HandTracker() {
     let lastVideoTime = -1;
     let disposed = false;
     let halted = false;
-    let consecutiveFailures = 0;
 
     function releaseResources() {
       if (animationFrameId !== null) {
@@ -75,23 +74,18 @@ export function HandTracker() {
 
       handLandmarker = createdLandmarker;
 
+      if (isOn == true) {
       //get the camera information with no audio
-      const cameraStream =
-        await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false,
-        });
-
-      if (disposed) {
-        cameraStream.getTracks().forEach((track) => track.stop());
-        return;
+        const cameraStream =
+          await navigator.mediaDevices.getUserMedia({video: {facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 }}, audio: false,});
+          stream = cameraStream;
+        if (disposed) {
+          cameraStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
       }
 
-      stream = cameraStream;
+      
 
       const video = videoRef.current;
       const canvas = canvasRef.current;
@@ -226,21 +220,8 @@ export function HandTracker() {
           }
           drawOverlayText(context, palms);
         }
-
-        consecutiveFailures = 0;
       } 
       
-      catch (error) {
-        consecutiveFailures++;
-
-        if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
-          halted = true;
-          console.error(`Hand detection failed ${consecutiveFailures} frames in a row, stopping. Reload to try again.`, error);
-          releaseResources();
-        } else {
-          console.error("Hand detection failed:", error);
-        }
-      } 
       finally { if (!disposed && !halted) animationFrameId = requestAnimationFrame(predictWebcam);}
     }
 
@@ -260,7 +241,7 @@ export function HandTracker() {
       disposed = true;
       releaseResources();
     };
-  }, []);
+  }, [isOn]);
 
   const layerStyle = {
     position: "absolute",
@@ -277,32 +258,39 @@ export function HandTracker() {
         position: "fixed",
         inset: 0,
         overflow: "hidden",
-        background: "#000",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start"
       }}
     >
-      <video
-        ref={videoRef}
-        autoPlay
-        muted
-        playsInline
-        style={{
-          ...layerStyle,
-          objectFit: "cover",
-          zIndex: 0,
-        }}
-      />
 
-      <Canvas palmRef={palmRef} videoRef={videoRef} />
+      {isOn && (
+        <> 
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          style={{
+            ...layerStyle,
+            objectFit: "cover",
+            zIndex: 0,
+          }}
+        />
 
-      <canvas
-        ref={canvasRef}
-        style={{
-          ...layerStyle,
-          objectFit: "cover",
-          pointerEvents: "none",
-          zIndex: 2,
-        }}
-      />
+        <Canvas palmRef={palmRef} videoRef={videoRef} />
+
+        <canvas
+          ref={canvasRef}
+          style={{
+            ...layerStyle,
+            objectFit: "cover",
+            pointerEvents: "none",
+            zIndex: 2,
+          }}
+        />
+      </>
+    )}
     </div>
   );
 }

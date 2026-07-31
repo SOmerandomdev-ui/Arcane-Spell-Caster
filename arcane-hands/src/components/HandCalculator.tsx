@@ -124,7 +124,7 @@ export function HandleHandResults(results: HandLandmarkerResult): HandState[] {
             if (angley < 75) direction = "Down"
             else if (angley > 100) direction = "Up"
         }
-        else if (nz > nx && nz > ny){
+        else if (nz > nx * 0.9 && nz > ny * 0.9 ){
             if (anglez < 45) direction = "Toward"
             else if (anglez > 140) direction = "Away"
         }
