@@ -6,6 +6,8 @@
   font-style: normal;
 }
 
+
+
 @font-face {
   font-family: "star";
   src: url('./assets/star.otf') format('opentype');
@@ -206,6 +208,7 @@ button {
 }
 
 .Spells {
+  display: flex;
   right: 40%;
   transform: translateX(50%) scale(1);
   background-image: radial-gradient(circle at right, rgb(156, 70, 190) 0, rgb(237, 230, 230) 100%);
@@ -215,6 +218,76 @@ button {
     background-image: radial-gradient(circle at right, rgb(156, 70, 190) 0, rgba(128, 31, 65, 0.57) 100%);
     transform: translateX(50%) scale(1.1);
   }
+}
+
+.Back {
+  font-size: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 60%;
+}
+
+* {
+  
+  box-sizing: border-box;
+}
+
+.SpellBox:nth-child(2) {background-image: linear-gradient(45deg, #D4F1F8, #C0E2F0,#ACD3E8,#99C4E1, #85B5D9,#71A6D1)}
+.SpellBox:nth-child(3) {background-image: linear-gradient(45deg, #9331CC, #B063E0,#C485F6,#DBABFF, #EAD5FB)}
+.SpellBox:nth-child(4) {background-image: linear-gradient(45deg, #A10100, #DA1F05,#F33C04,#FE650D, #FFC11F, #FFF75D)}
+.SpellBox:nth-child(5) {background-image: linear-gradient(45deg, #A10100, #DA1F05, #F33C04, #F07470,#F1959B, #F6BDC0)}
+.SpellBox:nth-child(6) {background-image: linear-gradient(45deg, #111115, #2e2137, #db904e, #c74a00,#770000)}
+
+.SpellBox {
+  height: 55vh;
+  width: 15vw;
+  
+  & > div {
+    color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: "space";
+    
+  }
+
+   & > .SpellTitle {
+    font-size: 2vw;
+    height: 15%;
+
+     border-bottom: 2px solid rgb(0, 0, 0);
+  }
+
+  & .Hand {
+    font-size: 1vw;
+    height: 10%;
+    
+  }
+
+  & img {
+    width: 100%;
+     border-bottom: 2px solid rgb(0, 0, 0);
+
+  }
+
+  & .SpellDescription {
+    height: 15%;
+    font-size: 1.2rem;
+    text-align: center;
+
+  }
+}
+
+.OnButton, .Spells {
+  animation: opacity 3.5s;
+}
+
+@keyframes opacity {
+  0% {opacity: 0}
+
+  50% {opacity: 0;}
+
+  100% {opacity: 100;}
 }
 
 #root {

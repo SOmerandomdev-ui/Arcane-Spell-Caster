@@ -1,6 +1,7 @@
 import { useState } from "react";
 
-export function Frontend({onSpellclick1, onSpellclick2, ClassName1, ClassName2, isOn, SpellsActive}: {onSpellclick1: () => void; onSpellclick2: () => void; ClassName1?: string; ClassName2: string, isOn: boolean, SpellsActive: boolean}) {
+export function Frontend({onSpellclick1, onSpellclick2, ClassName1, ClassName2, isOn, SpellsActive}: 
+    {onSpellclick1: () => void; onSpellclick2: () => void; ClassName1?: string; ClassName2: string, isOn: boolean, SpellsActive: boolean}) {
     
     return (!isOn && !SpellsActive && (
         <div className="Container">
