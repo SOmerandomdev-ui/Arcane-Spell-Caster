@@ -22,7 +22,7 @@ function App() {
       isOn={isOn}
       SpellsActive={SpellsActive}
     /> 
-    <ShowSpells isOn={isOn} SpellsActive={SpellsActive}/> 
+    <ShowSpells isOn={isOn} SpellsActive={SpellsActive} Back={() => setSpellsActive(false)}/> 
     <HandTracker isOn={isOn} SpellsActive={SpellsActive} />
   </>
   )
