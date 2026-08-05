@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { HandleHandResults } from "../HandCalculator.tsx";
 import { Canvas } from "../spells/SpellManager.tsx";
 import { drawOverlayText } from "../Overlay-Text.tsx";
@@ -14,7 +14,7 @@ import { isPoseActive } from "../../gestures_model/gesturemodel.ts";
  */
 let cameraSession: Promise<void> = Promise.resolve();
 
-export function HandTracker({isOn, SpellsActive}: {isOn: boolean, SpellsActive: boolean}) {
+export function HandTracker({isOn}: {isOn: boolean, SpellsActive: boolean}) {
   //Establish references to attach to 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -252,45 +252,40 @@ export function HandTracker({isOn, SpellsActive}: {isOn: boolean, SpellsActive: 
   } as const;
 
   //return the div with the video, the html canvas, and the imported canvas 
+  if (!isOn) return null;
+
   return (
     <div
       style={{
         position: "fixed",
         inset: 0,
         overflow: "hidden",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "flex-start"
+        background: "#000",
       }}
     >
+      <video
+        ref={videoRef}
+        autoPlay
+        muted
+        playsInline
+        style={{
+          ...layerStyle,
+          objectFit: "cover",
+          zIndex: 0,
+        }}
+      />
 
-      {isOn && (
-        <> 
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          style={{
-            ...layerStyle,
-            objectFit: "cover",
-            zIndex: 0,
-          }}
-        />
+      <Canvas palmRef={palmRef} videoRef={videoRef} />
 
-        <Canvas palmRef={palmRef} videoRef={videoRef} />
-
-        <canvas
-          ref={canvasRef}
-          style={{
-            ...layerStyle,
-            objectFit: "cover",
-            pointerEvents: "none",
-            zIndex: 2,
-          }}
-        />
-      </>
-    )}
+      <canvas
+        ref={canvasRef}
+        style={{
+          ...layerStyle,
+          objectFit: "cover",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
     </div>
   );
 }
